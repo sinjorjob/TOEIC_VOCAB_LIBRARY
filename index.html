@@ -3,33 +3,46 @@
 
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>3D TOEIC単語ネットワーク</title>
     <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
         body {
             margin: 0;
             font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
             overflow: hidden;
             background: #000;
+            touch-action: none;
         }
 
         #graph-container {
             width: 100vw;
             height: 100vh;
+            touch-action: none;
         }
 
         .info-panel {
             position: fixed;
-            top: 20px;
+            top: auto; /* topを削除 */
+            bottom: 20px; /* 下からの配置に変更 */
             right: 20px;
+            left: 20px;
             background: rgba(28, 28, 45, 0.95);
-            padding: 25px;
+            padding: 15px;
             border-radius: 15px;
-            max-width: 380px;
             display: none;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
             color: #fff;
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
+            max-height: 30vh; /* 画面の60%までの高さに制限 */
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         .info-panel h2 {
@@ -255,6 +268,38 @@
                 filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.7));
             }
         }
+        @media (max-width: 768px) {
+            .info-panel h2 {
+                font-size: 20px;
+                margin-bottom: 15px;
+            }
+        
+            .info-panel .meaning-box {
+                padding: 10px;
+                margin-bottom: 15px;
+            }
+        
+            .meaning-entry {
+                margin-bottom: 8px;
+                padding-bottom: 8px;
+            }
+        
+            .related-word-badge {
+                padding: 3px 10px;
+                margin: 0 6px 6px 0;
+                font-size: 11px;
+            }
+        
+            .example-box {
+                padding: 8px 12px;
+                margin: 12px 0;
+            }
+        }
+        
+        .scrollable {
+            -webkit-overflow-scrolling: touch;
+            overflow-y: auto;
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.9/dat.gui.min.js"></script>
@@ -264,7 +309,7 @@
 
 <body>
     <div id="graph-container"></div>
-    <div id="info-panel" class="info-panel">
+    <div id="info-panel" class="info-panel scrollable">
         <h2 id="word-title"></h2>
         <div id="level" class="level-badge"></div>
         <div class="word-category">関連情報</div>
@@ -1030,13 +1075,22 @@
             ]
         };
 
+        document.addEventListener('touchmove', function(e) {
+            if (!e.target.closest('.scrollable')) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        document.addEventListener('gesturestart', function(e) {
+            e.preventDefault();
+        });
 
         const Graph = ForceGraph3D()
             (document.getElementById('graph-container'))
             .graphData(vocabularyData)
             .nodeLabel('label')
             .nodeColor(node => getNodeColor(node.group))
-            .nodeRelSize(6)
+            .nodeRelSize(4) // サイズを小さく
             .linkWidth(0.76)
             .linkDirectionalParticles(3)
             .linkDirectionalParticleWidth(2)
@@ -1044,6 +1098,14 @@
             .onNodeClick(handleNodeClick)
             .onBackgroundClick(hideInfoPanel);
 
+        // モバイル向けの設定を追加
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        if (isMobile) {
+            Graph
+                .enableNodeDrag(false)
+                .enableNavigationControls(true)
+                .showNavInfo(false);
+        }
         // 初期状態でリンクを非表示にする
         Graph.linkVisibility(() => false);
 
