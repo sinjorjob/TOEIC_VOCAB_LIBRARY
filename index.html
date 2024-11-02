@@ -1112,12 +1112,39 @@
             };
         }
         
+        function calculateGroupCenter(nodes) {
+            const positions = nodes.map(node => ({
+                x: node.x || 0,
+                y: node.y || 0,
+                z: node.z || 0
+            }));
+        
+            const center = {
+                x: positions.reduce((sum, pos) => sum + pos.x, 0) / positions.length,
+                y: positions.reduce((sum, pos) => sum + pos.y, 0) / positions.length,
+                z: positions.reduce((sum, pos) => sum + pos.z, 0) / positions.length
+            };
+        
+            // スマホの場合、中心点を上方向に移動
+            if (isMobile) {
+                center.y += 200; // この値を大きくすると、より上部に表示されます
+            }
+        
+            return center;
+        }
+        
         function focusCameraOnGroup(nodes) {
             const center = calculateGroupCenter(nodes);
-            const distance = isMobile ? 600 : 150;
+            const distance = isMobile ? 300 : 150;
+            
+            let cameraPosition = {
+                x: center.x,
+                y: center.y,
+                z: center.z + distance
+            };
         
             Graph.cameraPosition(
-                { x: center.x, y: center.y, z: center.z + distance },
+                cameraPosition,
                 center,
                 isMobile ? 1000 : 2000
             );
