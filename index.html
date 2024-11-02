@@ -1121,20 +1121,19 @@
             if (isMobile) {
                 cameraPosition = {
                     x: center.x,
-                    y: center.y + 350,  // 100 → 300 に変更（さらに上方向に）
+                    y: center.y - 300,  // マイナスの値に変更（画面上部に移動）
                     z: center.z + distance
                 };
                 
-                // 注視点も少し上方向に調整
                 const lookAtPoint = {
                     x: center.x,
-                    y: center.y + 150,  // 注視点も上に移動（カメラ位置の半分程度）
+                    y: center.y - 300,  // 注視点も同じ高さに
                     z: center.z
                 };
         
                 Graph.cameraPosition(
                     cameraPosition,
-                    lookAtPoint,  // 注視点を変更
+                    lookAtPoint,
                     1000
                 );
             } else {
