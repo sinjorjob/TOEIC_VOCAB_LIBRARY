@@ -1114,11 +1114,28 @@
         
         function focusCameraOnGroup(nodes) {
             const center = calculateGroupCenter(nodes);
-            const distance = isMobile ? 600 : 150;
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            const distance = isMobile ? 300 : 150;
+            
+            // モバイルの場合、カメラ位置を上方向に調整
+            let cameraPosition;
+            if (isMobile) {
+                cameraPosition = {
+                    x: center.x,
+                    y: center.y + 100,  // この値を調整して上方向の位置を変更
+                    z: center.z + distance
+                };
+            } else {
+                cameraPosition = {
+                    x: center.x,
+                    y: center.y,
+                    z: center.z + distance
+                };
+            }
         
             Graph.cameraPosition(
-                { x: center.x, y: center.y, z: center.z + distance },
-                center,
+                cameraPosition,
+                center,  // 注視点は中心のまま
                 isMobile ? 1000 : 2000
             );
         }
