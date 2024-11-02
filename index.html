@@ -1112,44 +1112,45 @@
             };
         }
         
-        function focusCameraOnGroup(nodes) {
-            const center = calculateGroupCenter(nodes);
-            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-            const distance = isMobile ? 300 : 150;
-            
-            let cameraPosition;
-            if (isMobile) {
-                cameraPosition = {
-                    x: center.x,
-                    y: center.y - 400,  // マイナスの値に変更（画面上部に移動）
-                    z: center.z + distance
-                };
-                
-                const lookAtPoint = {
-                    x: center.x,
-                    y: center.y - 400,  // 注視点も同じ高さに
-                    z: center.z
-                };
+function focusCameraOnGroup(nodes) {
+    const center = calculateGroupCenter(nodes);
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const distance = isMobile ? 300 : 150;
+    
+    let cameraPosition;
+    if (isMobile) {
+        cameraPosition = {
+            x: center.x,
+            y: center.y + 300,  // 100 → 300 に変更（さらに上方向に）
+            z: center.z + distance
+        };
         
-                Graph.cameraPosition(
-                    cameraPosition,
-                    lookAtPoint,
-                    1000
-                );
-            } else {
-                cameraPosition = {
-                    x: center.x,
-                    y: center.y,
-                    z: center.z + distance
-                };
-                
-                Graph.cameraPosition(
-                    cameraPosition,
-                    center,
-                    2000
-                );
-            }
-        }
+        // 注視点も少し上方向に調整
+        const lookAtPoint = {
+            x: center.x,
+            y: center.y + 150,  // 注視点も上に移動（カメラ位置の半分程度）
+            z: center.z
+        };
+
+        Graph.cameraPosition(
+            cameraPosition,
+            lookAtPoint,  // 注視点を変更
+            1000
+        );
+    } else {
+        cameraPosition = {
+            x: center.x,
+            y: center.y,
+            z: center.z + distance
+        };
+        
+        Graph.cameraPosition(
+            cameraPosition,
+            center,
+            2000
+        );
+    }
+}
         
         const Graph = ForceGraph3D()
             (document.getElementById('graph-container'))
