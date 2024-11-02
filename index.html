@@ -1114,7 +1114,7 @@
         
         function focusCameraOnGroup(nodes) {
             const center = calculateGroupCenter(nodes);
-            const distance = isMobile ? 300 : 150;
+            const distance = isMobile ? 600 : 150;
         
             Graph.cameraPosition(
                 { x: center.x, y: center.y, z: center.z + distance },
@@ -1309,7 +1309,7 @@
                 .nodeColor(node => getNodeColor(node.group));
         }
         
-        Graph.cameraPosition({ x: 0, y: 0, z: isMobile ? 400 : 200 });
+        Graph.cameraPosition({ x: 0, y: 0, z: isMobile ? 600 : 200 });
         Graph.controls().enableDamping = true;
         Graph.controls().dampingFactor = 0.25;
         Graph.controls().rotateSpeed = 0.5;
