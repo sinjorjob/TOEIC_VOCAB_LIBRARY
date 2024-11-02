@@ -1095,7 +1095,9 @@
             e.preventDefault();
         });
         
-        // 新しい関数: ノードの中心位置を計算
+        // デバイスチェック
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        
         function calculateGroupCenter(nodes) {
             const positions = nodes.map(node => ({
                 x: node.x || 0,
@@ -1110,15 +1112,14 @@
             };
         }
         
-        // 新しい関数: カメラをグループの中心に移動
         function focusCameraOnGroup(nodes) {
             const center = calculateGroupCenter(nodes);
-            const distance = 150; // モバイル向けに距離を調整
+            const distance = isMobile ? 200 : 150;
         
             Graph.cameraPosition(
                 { x: center.x, y: center.y, z: center.z + distance },
                 center,
-                2000  // モバイル向けにアニメーション時間を短縮
+                isMobile ? 1000 : 2000
             );
         }
         
@@ -1127,16 +1128,14 @@
             .graphData(vocabularyData)
             .nodeLabel('label')
             .nodeColor(node => getNodeColor(node.group))
-            .nodeRelSize(4)
+            .nodeRelSize(isMobile ? 6 : 4)
             .linkWidth(1)
-            .linkDirectionalParticles(6)
+            .linkDirectionalParticles(isMobile ? 3 : 6)
             .linkDirectionalParticleWidth(2)
             .linkDirectionalParticleSpeed(0.003)
             .onNodeClick(handleNodeClick)
             .onBackgroundClick(hideInfoPanel);
         
-        // モバイル向けの設定
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         if (isMobile) {
             Graph
                 .enableNodeDrag(false)
@@ -1150,7 +1149,7 @@
             const sprite = new SpriteText(node.id);
             sprite.material.depthWrite = false;
             sprite.color = 'white';
-            sprite.textHeight = 8;
+            sprite.textHeight = isMobile ? 10 : 8;
             return sprite;
         });
         
@@ -1295,14 +1294,11 @@
         
             Graph.nodeColor(n =>
                 n === node ? '#ff0000' :
-                connectedNodes.includes(n.id) ? '#ffff00' :
+                connectedNodes.includes(n) ? '#ffff00' :
                 getNodeColor(n.group)
             );
         
-            // 選択したノードとその関連ノードを含む配列を作成
             const nodeGroup = [node, ...connectedNodes];
-            
-            // カメラをグループの中心に移動
             focusCameraOnGroup(nodeGroup);
         }
         
@@ -1313,7 +1309,7 @@
                 .nodeColor(node => getNodeColor(node.group));
         }
         
-        Graph.cameraPosition({ x: 0, y: 0, z: 200 });
+        Graph.cameraPosition({ x: 0, y: 0, z: isMobile ? 300 : 200 });
         Graph.controls().enableDamping = true;
         Graph.controls().dampingFactor = 0.25;
         Graph.controls().rotateSpeed = 0.5;
@@ -1329,7 +1325,9 @@
         function initParticles() {
             const geometry = new THREE.BufferGeometry();
             const vertices = [];
-            for (let i = 0; i < 1000; i++) {
+            const particleCount = isMobile ? 500 : 1000;  // モバイルでは粒子数を減らす
+            
+            for (let i = 0; i < particleCount; i++) {
                 vertices.push(
                     Math.random() * 600 - 300,
                     Math.random() * 600 - 300,
@@ -1353,20 +1351,30 @@
         function animate() {
             time += 0.01;
         
-            Graph.scene().traverse(obj => {
-                if (obj.material && obj.material.uniforms) {
-                    obj.material.uniforms.time.value = time;
-                    obj.material.uniforms.glowIntensity.value = 1.2 + Math.sin(time) * 0.3;
-                }
-            });
+            // モバイルの場合はエフェクトを軽減
+            if (!isMobile || time % 2 === 0) {
+                Graph.scene().traverse(obj => {
+                    if (obj.material && obj.material.uniforms) {
+                        obj.material.uniforms.time.value = time;
+                        obj.material.uniforms.glowIntensity.value = 1.2 + Math.sin(time) * 0.3;
+                    }
+                });
         
-            if (particles) {
-                particles.rotation.x += 0.0001;
-                particles.rotation.y += 0.0001;
+                if (particles) {
+                    particles.rotation.x += 0.0001;
+                    particles.rotation.y += 0.0001;
+                }
             }
         
             requestAnimationFrame(animate);
         }
+        
+        window.addEventListener('orientationchange', function() {
+            setTimeout(() => {
+                Graph.width(window.innerWidth);
+                Graph.height(window.innerHeight);
+            }, 100);
+        });
         
         animate();
     </script>
