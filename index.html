@@ -1112,45 +1112,33 @@
             };
         }
         
-function focusCameraOnGroup(nodes) {
-    const center = calculateGroupCenter(nodes);
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    const distance = isMobile ? 300 : 150;
-    
-    let cameraPosition;
-    if (isMobile) {
-        cameraPosition = {
-            x: center.x,
-            y: center.y + 300,  // 100 → 300 に変更（さらに上方向に）
-            z: center.z + distance
-        };
+        function focusCameraOnGroup(nodes) {
+            const center = calculateGroupCenter(nodes);
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            const distance = isMobile ? 300 : 150;
+            
+            // モバイルの場合、カメラ位置を上方向に調整
+            let cameraPosition;
+            if (isMobile) {
+                cameraPosition = {
+                    x: center.x,
+                    y: center.y + 100,  // この値を調整して上方向の位置を変更
+                    z: center.z + distance
+                };
+            } else {
+                cameraPosition = {
+                    x: center.x,
+                    y: center.y,
+                    z: center.z + distance
+                };
+            }
         
-        // 注視点も少し上方向に調整
-        const lookAtPoint = {
-            x: center.x,
-            y: center.y + 150,  // 注視点も上に移動（カメラ位置の半分程度）
-            z: center.z
-        };
-
-        Graph.cameraPosition(
-            cameraPosition,
-            lookAtPoint,  // 注視点を変更
-            1000
-        );
-    } else {
-        cameraPosition = {
-            x: center.x,
-            y: center.y,
-            z: center.z + distance
-        };
-        
-        Graph.cameraPosition(
-            cameraPosition,
-            center,
-            2000
-        );
-    }
-}
+            Graph.cameraPosition(
+                cameraPosition,
+                center,  // 注視点は中心のまま
+                isMobile ? 1000 : 2000
+            );
+        }
         
         const Graph = ForceGraph3D()
             (document.getElementById('graph-container'))
