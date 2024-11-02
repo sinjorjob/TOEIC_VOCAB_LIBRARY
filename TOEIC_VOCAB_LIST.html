@@ -246,257 +246,275 @@
        
         const Graph = ForceGraph3D()
         (document.getElementById('graph-container'))
-            .graphData(vocabularyData)
-            .nodeLabel('label')
-            .nodeColor(node => getNodeColor(node.group))
-            .nodeRelSize(6)
-            .linkWidth(0.76)
-            .linkDirectionalParticles(3)
-            .linkDirectionalParticleWidth(2)
-            .linkDirectionalParticleSpeed(0.005)
-            .onNodeClick(handleNodeClick)
-            .onBackgroundClick(hideInfoPanel);
+        .graphData(vocabularyData)
+        .nodeLabel('label')
+        .nodeColor(node => getNodeColor(node.group))
+        .nodeRelSize(6)
+        .linkWidth(1.25)
+        .linkDirectionalParticles(6)
+        .linkDirectionalParticleWidth(2)
+        .linkDirectionalParticleSpeed(0.003)
+        .onNodeClick(handleNodeClick)
+        .onBackgroundClick(hideInfoPanel);
+    
+    // 初期状態でリンクを非表示にする
+    Graph.linkVisibility(() => false);
+    
+    Graph.nodeThreeObject(node => {
+        const sprite = new SpriteText(node.id);
+        sprite.material.depthWrite = false;
+        sprite.color = 'white';
+        sprite.textHeight = 8;
+        return sprite;
+    });
+    
+    function getNodeColor(group) {
+        const colors = {
+            1: '#4A90E2',
+            2: '#50E3C2',
+            3: '#F5A623'
+        };
+        return colors[group] || '#ffffff';
+    }
+    
+    function getRelatedNodes(nodeId) {
+        return vocabularyData.links
+            .filter(link => link.source.id === nodeId || link.target.id === nodeId)
+            .map(link => {
+                const relatedNode = link.source.id === nodeId ? link.target : link.source;
+                return {
+                    id: relatedNode.id,
+                    label: vocabularyData.nodes.find(n => n.id === relatedNode.id).label
+                };
+            });
+    }
+    
+    function createChainLinkGeometry(startPoint, endPoint) {
+        const curve = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(startPoint.x, startPoint.y, startPoint.z),
+            new THREE.Vector3(
+                (startPoint.x + endPoint.x) / 2,
+                (startPoint.y + endPoint.y) / 2 + 10,
+                (startPoint.z + endPoint.z) / 2
+            ),
+            new THREE.Vector3(endPoint.x, endPoint.y, endPoint.z)
+        ]);
+    
+        const tubeGeometry = new THREE.TubeGeometry(curve, 64, 0.5, 8, false);
+        return tubeGeometry;
+    }
+    
+    const glowMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            time: { value: 0 },
+            color: { value: new THREE.Color(0x00ffff) },
+            glowIntensity: { value: 3.0 }
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform float time;
+            uniform vec3 color;
+            uniform float glowIntensity;
+            varying vec2 vUv;
+            
+            void main() {
+                float pulse = 0.5 + 0.5 * sin(time * 2.0 + vUv.x * 10.0);
+                float edgeGlow = pow(1.0 - abs(vUv.y - 0.5) * 2.0, 2.0);
+                float shine = pow(max(0.0, sin(time * 3.0 + vUv.x * 15.0)), 8.0);
+                float brightness = mix(0.5, 1.0, pulse * edgeGlow + shine) * glowIntensity;
+                vec3 brightColor = color + vec3(0.3) * shine;
+                gl_FragColor = vec4(brightColor * brightness, 0.8);
+            }
+        `,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    });
+    
+    Graph.linkThreeObject(link => {
+        const start = link.source;
+        const end = link.target;
+        const geometry = createChainLinkGeometry(start, end);
         
-        // 初期状態でリンクを非表示にする
-        Graph.linkVisibility(() => false);
+        const material = glowMaterial.clone();
+        material.uniforms.color.value = new THREE.Color(0x00BFFF);
+        material.uniforms.glowIntensity.value = 1.5;
         
-        Graph.nodeThreeObject(node => {
-            const sprite = new SpriteText(node.id);
-            sprite.material.depthWrite = false;
-            sprite.color = 'white';
-            sprite.textHeight = 8;
-            return sprite;
-        });
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.userData = { link };
         
-        function getNodeColor(group) {
-            const colors = {
-                1: '#4A90E2',
-                2: '#50E3C2',
-                3: '#F5A623'
-            };
-            return colors[group] || '#ffffff';
-        }
-        
-        function getRelatedNodes(nodeId) {
-            return vocabularyData.links
-                .filter(link => link.source.id === nodeId || link.target.id === nodeId)
-                .map(link => {
-                    const relatedNode = link.source.id === nodeId ? link.target : link.source;
-                    return {
-                        id: relatedNode.id,
-                        label: vocabularyData.nodes.find(n => n.id === relatedNode.id).label
-                    };
-                });
-        }
-        
-        // カスタムリンクジオメトリ生成関数
-        function createChainLinkGeometry(startPoint, endPoint) {
-            const curve = new THREE.CatmullRomCurve3([
-                new THREE.Vector3(startPoint.x, startPoint.y, startPoint.z),
-                new THREE.Vector3(
-                    (startPoint.x + endPoint.x) / 2,
-                    (startPoint.y + endPoint.y) / 2 + 10, // より大きなカーブ
-                    (startPoint.z + endPoint.z) / 2
-                ),
-                new THREE.Vector3(endPoint.x, endPoint.y, endPoint.z)
-            ]);
-        
-            const tubeGeometry = new THREE.TubeGeometry(curve, 64, 0.5, 8, false);
-            return tubeGeometry;
-        }
-        
-        // グローエフェクト用の改良されたマテリアル
-        const glowMaterial = new THREE.ShaderMaterial({
-            uniforms: {
-                time: { value: 0 },
-                color: { value: new THREE.Color(0x00BFFF) },  // より明るい青色 (DeepSkyBlue)
-                glowIntensity: { value: 1.5 }  // 光沢の強さ
-            },
-            vertexShader: `
-                varying vec2 vUv;
-                void main() {
-                    vUv = uv;
-                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-                }
-            `,
-            fragmentShader: `
-                uniform float time;
-                uniform vec3 color;
-                uniform float glowIntensity;
-                varying vec2 vUv;
-                
-                void main() {
-                    // パルスエフェクト
-                    float pulse = 0.5 + 0.5 * sin(time * 2.0 + vUv.x * 10.0);
-                    
-                    // エッジグロー効果
-                    float edgeGlow = pow(1.0 - abs(vUv.y - 0.5) * 2.0, 2.0);
-                    
-                    // 光沢効果
-                    float shine = pow(max(0.0, sin(time * 3.0 + vUv.x * 15.0)), 8.0);
-                    
-                    // 最終的な輝度
-                    float brightness = mix(0.5, 1.0, pulse * edgeGlow + shine) * glowIntensity;
-                    
-                    // より明るい色調整
-                    vec3 brightColor = color + vec3(0.3) * shine;
-                    
-                    gl_FragColor = vec4(brightColor * brightness, 0.8);
-                }
-            `,
-            transparent: true,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false
-        });
-        
-        Graph.linkThreeObject(link => {
-            const start = link.source;
-            const end = link.target;
+        return mesh;
+    });
+    
+    Graph.linkPositionUpdate((obj, { start, end }) => {
+        if (obj.geometry) {
             const geometry = createChainLinkGeometry(start, end);
-            
-            const material = glowMaterial.clone();
-            material.uniforms.color.value = new THREE.Color(0x00BFFF);
-            material.uniforms.glowIntensity.value = 1.5;
-            
-            const mesh = new THREE.Mesh(geometry, material);
-            mesh.userData = { link };
-            
-            return mesh;
+            obj.geometry.dispose();
+            obj.geometry = geometry;
+        }
+        return false;
+    });
+    
+    function highlightRelatedWords(text, relatedNodes) {
+        let highlightedText = text;
+        relatedNodes.forEach(node => {
+            const regex = new RegExp(node.id, 'gi');
+            highlightedText = highlightedText.replace(regex, `<span class="highlighted-word">${node.id}</span>`);
         });
+        return highlightedText;
+    }
+    
+    // 新しい関数: ノードの中心位置を計算
+    function calculateGroupCenter(nodes) {
+        const positions = nodes.map(node => ({
+            x: node.x || 0,
+            y: node.y || 0,
+            z: node.z || 0
+        }));
+    
+        return {
+            x: positions.reduce((sum, pos) => sum + pos.x, 0) / positions.length,
+            y: positions.reduce((sum, pos) => sum + pos.y, 0) / positions.length,
+            z: positions.reduce((sum, pos) => sum + pos.z, 0) / positions.length
+        };
+    }
+    
+    // 新しい関数: カメラをグループの中心に移動
+    function focusCameraOnGroup(nodes) {
+        const center = calculateGroupCenter(nodes);
+        const distance = 200; // カメラの距離
+    
+        Graph.cameraPosition(
+            { x: center.x, y: center.y, z: center.z + distance }, // カメラの新しい位置
+            center, // 注視点（グループの中心）
+            3000  // アニメーション時間（ミリ秒）
+        );
+    }
+    
+    function handleNodeClick(node) {
+        const infoPanel = document.getElementById('info-panel');
+        document.getElementById('word-title').textContent = `${node.id} (${node.label})`;
         
-        Graph.linkPositionUpdate((obj, { start, end }) => {
-            if (obj.geometry) {
-                const geometry = createChainLinkGeometry(start, end);
-                obj.geometry.dispose();
-                obj.geometry = geometry;
-            }
-            return false;
+        const meanings = node.meaning.split('\n').map(entry => {
+            const [word, meaning] = entry.split(': ');
+            const [mainWord, partOfSpeech] = word.split(' ');
+            return `<div class="meaning-entry">
+                <span class="part-of-speech">${partOfSpeech}</span>
+                <span class="word-meaning">${mainWord}: ${meaning}</span>
+            </div>`;
+        }).join('');
+        
+        document.getElementById('word-meaning').innerHTML = meanings;
+        document.getElementById('level').textContent = node.level;
+    
+        const relatedNodes = getRelatedNodes(node.id);
+    
+        document.getElementById('word-example-en').innerHTML = 
+            highlightRelatedWords(node.exampleEn, relatedNodes);
+        document.getElementById('word-example-jp').textContent = node.exampleJp;
+    
+        const relatedWordsHtml = relatedNodes
+            .map(related => `<span class="related-word-badge">${related.id} (${related.label})</span>`)
+            .join('');
+        document.getElementById('related-words-list').innerHTML = relatedWordsHtml;
+        
+        infoPanel.style.display = 'block';
+        
+        // 選択したノードに関連するリンクのみを表示
+        Graph.linkVisibility(link => 
+            link.source.id === node.id || link.target.id === node.id
+        );
+        
+        const connectedNodes = vocabularyData.links
+            .filter(link => link.source.id === node.id || link.target.id === node.id)
+            .map(link => link.source.id === node.id ? link.target : link.source);
+        
+        Graph.nodeColor(n => 
+            n === node ? '#ff0000' : 
+            connectedNodes.includes(n.id) ? '#ffff00' : 
+            getNodeColor(n.group)
+        );
+    
+        // 選択したノードとその関連ノードを含む配列を作成
+        const nodeGroup = [node, ...connectedNodes];
+        
+        // カメラをグループの中心に移動
+        focusCameraOnGroup(nodeGroup);
+    }
+    
+    function hideInfoPanel() {
+        document.getElementById('info-panel').style.display = 'none';
+        Graph
+            .linkVisibility(() => false)
+            .nodeColor(node => getNodeColor(node.group));
+    }
+    
+    // カメラとコントロールの設定
+    Graph.cameraPosition({ x: 0, y: 0, z: 200 });
+    Graph.controls().enableDamping = true;
+    Graph.controls().dampingFactor = 0.25;
+    Graph.controls().rotateSpeed = 0.5;
+    
+    // ライティングの設定
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    Graph.scene().add(ambientLight);
+    
+    const pointLight = new THREE.PointLight(0xffffff, 0.8, 100);
+    pointLight.position.set(5, 5, 5);
+    Graph.scene().add(pointLight);
+    
+    // パーティクルの初期化
+    let particles;
+    function initParticles() {
+        const geometry = new THREE.BufferGeometry();
+        const vertices = [];
+        for (let i = 0; i < 1000; i++) {
+            vertices.push(
+                Math.random() * 600 - 300,
+                Math.random() * 600 - 300,
+                Math.random() * 600 - 300
+            );
+        }
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+        const material = new THREE.PointsMaterial({
+            size: 0.5,
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.5
         });
+        particles = new THREE.Points(geometry, material);
+        Graph.scene().add(particles);
+    }
+    
+    initParticles();
+    
+    // アニメーションループ
+    let time = 0;
+    function animate() {
+        time += 0.01;
         
-        function highlightRelatedWords(text, relatedNodes) {
-            let highlightedText = text;
-            relatedNodes.forEach(node => {
-                const regex = new RegExp(node.id, 'gi');
-                highlightedText = highlightedText.replace(regex, `<span class="highlighted-word">${node.id}</span>`);
-            });
-            return highlightedText;
-        }
-        
-        function handleNodeClick(node) {
-            const infoPanel = document.getElementById('info-panel');
-            document.getElementById('word-title').textContent = `${node.id} (${node.label})`;
-            
-            const meanings = node.meaning.split('\n').map(entry => {
-                const [word, meaning] = entry.split(': ');
-                const [mainWord, partOfSpeech] = word.split(' ');
-                return `<div class="meaning-entry">
-                    <span class="part-of-speech">${partOfSpeech}</span>
-                    <span class="word-meaning">${mainWord}: ${meaning}</span>
-                </div>`;
-            }).join('');
-            
-            document.getElementById('word-meaning').innerHTML = meanings;
-            document.getElementById('level').textContent = node.level;
-        
-            const relatedNodes = getRelatedNodes(node.id);
-        
-            document.getElementById('word-example-en').innerHTML = 
-                highlightRelatedWords(node.exampleEn, relatedNodes);
-            document.getElementById('word-example-jp').textContent = node.exampleJp;
-        
-            const relatedWordsHtml = relatedNodes
-                .map(related => `<span class="related-word-badge">${related.id} (${related.label})</span>`)
-                .join('');
-            document.getElementById('related-words-list').innerHTML = relatedWordsHtml;
-            
-            infoPanel.style.display = 'block';
-            
-            // 選択したノードに関連するリンクのみを表示
-            Graph.linkVisibility(link => 
-                link.source.id === node.id || link.target.id === node.id
-            );
-            
-            const connectedNodes = vocabularyData.links
-                .filter(link => link.source.id === node.id || link.target.id === node.id)
-                .map(link => link.source.id === node.id ? link.target : link.source);
-            
-            Graph.nodeColor(n => 
-                n === node ? '#ff0000' : 
-                connectedNodes.includes(n.id) ? '#ffff00' : 
-                getNodeColor(n.group)
-            );
-        }
-        
-        function hideInfoPanel() {
-            document.getElementById('info-panel').style.display = 'none';
-            // 背景クリック時に全リンクを非表示に
-            Graph
-                .linkVisibility(() => false)
-                .nodeColor(node => getNodeColor(node.group));
-        }
-        
-        // カメラとコントロールの設定
-        Graph.cameraPosition({ x: 0, y: 0, z: 200 });
-        Graph.controls().enableDamping = true;
-        Graph.controls().dampingFactor = 0.25;
-        Graph.controls().rotateSpeed = 0.5;
-        
-        // ライティングの設定
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-        Graph.scene().add(ambientLight);
-        
-        const pointLight = new THREE.PointLight(0xffffff, 0.8, 100);
-        pointLight.position.set(5, 5, 5);
-        Graph.scene().add(pointLight);
-        
-        // パーティクルの初期化
-        let particles;
-        function initParticles() {
-            const geometry = new THREE.BufferGeometry();
-            const vertices = [];
-            for (let i = 0; i < 1000; i++) {
-                vertices.push(
-                    Math.random() * 600 - 300,
-                    Math.random() * 600 - 300,
-                    Math.random() * 600 - 300
-                );
+        Graph.scene().traverse(obj => {
+            if (obj.material && obj.material.uniforms) {
+                obj.material.uniforms.time.value = time;
+                obj.material.uniforms.glowIntensity.value = 1.2 + Math.sin(time) * 0.3;
             }
-            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-            const material = new THREE.PointsMaterial({
-                size: 0.5,
-                color: 0xffffff,
-                transparent: true,
-                opacity: 0.5
-            });
-            particles = new THREE.Points(geometry, material);
-            Graph.scene().add(particles);
+        });
+    
+        if (particles) {
+            particles.rotation.x += 0.0001;
+            particles.rotation.y += 0.0001;
         }
-        
-        initParticles();
-        
-        // アニメーションループ
-        let time = 0;
-        function animate() {
-            time += 0.01;
-            
-            Graph.scene().traverse(obj => {
-                if (obj.material && obj.material.uniforms) {
-                    obj.material.uniforms.time.value = time;
-                    // パルス効果の強度を動的に変更
-                    obj.material.uniforms.glowIntensity.value = 1.2 + Math.sin(time) * 0.3;
-                }
-            });
-        
-            if (particles) {
-                particles.rotation.x += 0.0001;
-                particles.rotation.y += 0.0001;
-            }
-        
-     
-            requestAnimationFrame(animate);
-        }
-        
-        animate();
+    
+        requestAnimationFrame(animate);
+    }
+    
+    animate();
     </script>
 </body>
 </html>
