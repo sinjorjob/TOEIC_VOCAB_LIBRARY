@@ -242,18 +242,17 @@
 
     <script>
         const groupInfo = {
-            1: { name: "ビジネス戦略", color: "#FF3333" },      // やや薄い赤
-            2: { name: "プロジェクト管理", color: "#33FF33" },  // やや薄い緑
-            3: { name: "マーケティング", color: "#3333FF" },    // やや薄い青
-            4: { name: "財務・会計", color: "#FFFF33" },        // やや薄い黄色
-            5: { name: "人事・組織", color: "#FF33FF" },        // やや薄いマゼンタ
-            6: { name: "IT・テクノロジー", color: "#33FFFF" },  // やや薄いシアン
-            7: { name: "コミュニケーション", color: "#FF8033" }, // やや薄いオレンジ
-            8: { name: "リスク管理", color: "#8033FF" },        // やや薄いパープル
-            9: { name: "品質管理", color: "#33FF80" },          // やや薄いライトグリーン
-            10: { name: "サプライチェーン", color: "#FF8080" }  // やや薄いピンク
+            1: { name: "ビジネス戦略", color: "#FF3333" },
+            2: { name: "プロジェクト管理", color: "#33FF33" },
+            3: { name: "マーケティング", color: "#3333FF" },
+            4: { name: "財務・会計", color: "#FFFF33" },
+            5: { name: "人事・組織", color: "#FF33FF" },
+            6: { name: "IT・テクノロジー", color: "#33FFFF" },
+            7: { name: "コミュニケーション", color: "#FF8033" },
+            8: { name: "リスク管理", color: "#8033FF" },
+            9: { name: "品質管理", color: "#33FF80" },
+            10: { name: "サプライチェーン", color: "#FF8080" }
         };
-        
         
         const vocabularyData = {
             nodes: [
@@ -999,6 +998,7 @@
         }
         ]
         };
+        
         function getNodeColor(node) {
             if (typeof node === 'number') {
                 return groupInfo[node]?.color || '#ffffff';
@@ -1037,8 +1037,151 @@
             return sprite;
         });
 
-        // 宇宙空間の生成関数
         function createSpaceEnvironment() {
+            // 星のパーティクルシステム用の配列
+            const particleSystems = [];
+            
+            // 遠距離の背景星（ゆっくり動く）
+            const backgroundStarsCount = 10000;
+            const backgroundStarsGeometry = new THREE.BufferGeometry();
+            const backgroundStarsPositions = new Float32Array(backgroundStarsCount * 3);
+            const backgroundStarsVelocities = new Float32Array(backgroundStarsCount * 3);
+            const backgroundStarsSizes = new Float32Array(backgroundStarsCount);
+            const backgroundStarsColors = new Float32Array(backgroundStarsCount * 3);
+
+            for (let i = 0; i < backgroundStarsCount; i++) {
+                const radius = 1000;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.random() * Math.PI;
+                
+                const idx = i * 3;
+                backgroundStarsPositions[idx] = radius * Math.sin(phi) * Math.cos(theta);
+                backgroundStarsPositions[idx + 1] = radius * Math.sin(phi) * Math.sin(theta);
+                backgroundStarsPositions[idx + 2] = radius * Math.cos(phi);
+                
+                // 各星の速度をランダムに設定（非常にゆっくり）
+                backgroundStarsVelocities[idx] = (Math.random() - 0.5) * 0.05;
+                backgroundStarsVelocities[idx + 1] = (Math.random() - 0.5) * 0.05;
+                backgroundStarsVelocities[idx + 2] = (Math.random() - 0.5) * 0.05;
+                
+                // サイズと色をランダムに設定
+                backgroundStarsSizes[i] = Math.random() * 0.5 + 0.1;
+                
+                // 色相をわずかにランダム化
+                const colorTemp = Math.random() * 0.2 + 0.8; // 0.8-1.0の範囲で
+                backgroundStarsColors[idx] = colorTemp;
+                backgroundStarsColors[idx + 1] = colorTemp;
+                backgroundStarsColors[idx + 2] = colorTemp;
+            }
+
+            backgroundStarsGeometry.setAttribute('position', new THREE.BufferAttribute(backgroundStarsPositions, 3));
+            backgroundStarsGeometry.setAttribute('size', new THREE.BufferAttribute(backgroundStarsSizes, 1));
+            backgroundStarsGeometry.setAttribute('color', new THREE.BufferAttribute(backgroundStarsColors, 3));
+
+            const backgroundStarsMaterial = new THREE.ShaderMaterial({
+                uniforms: {
+                    time: { value: 0 }
+                },
+                vertexShader: `
+                    attribute float size;
+                    attribute vec3 color;
+                    varying vec3 vColor;
+                    uniform float time;
+                    
+                    void main() {
+                        vColor = color;
+                        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                        gl_PointSize = size * (300.0 / -mvPosition.z);
+                        gl_Position = projectionMatrix * mvPosition;
+                    }
+                `,
+                fragmentShader: `
+                    varying vec3 vColor;
+                    
+                    void main() {
+                        float r = length(gl_PointCoord - vec2(0.5));
+                        if (r > 0.5) discard;
+                        
+                        float intensity = 1.0 - (r * 2.0);
+                        gl_FragColor = vec4(vColor, intensity);
+                    }
+                `,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+
+            const backgroundStars = new THREE.Points(backgroundStarsGeometry, backgroundStarsMaterial);
+            Graph.scene().add(backgroundStars);
+            particleSystems.push(backgroundStars);
+
+            // 明るく輝く星（特別な効果付き）
+            const brightStarsCount = 100;
+            const brightStarsGeometry = new THREE.BufferGeometry();
+            const brightStarsPositions = new Float32Array(brightStarsCount * 3);
+            const brightStarsColors = new Float32Array(brightStarsCount * 3);
+            const brightStarsSizes = new Float32Array(brightStarsCount);
+            const brightStarsPhases = new Float32Array(brightStarsCount);
+
+            for (let i = 0; i < brightStarsCount; i++) {
+                const idx = i * 3;
+                brightStarsPositions[idx] = (Math.random() - 0.5) * 800;
+                brightStarsPositions[idx + 1] = (Math.random() - 0.5) * 800;
+                brightStarsPositions[idx + 2] = (Math.random() - 0.5) * 800;
+
+                const color = getRandomStarColor();
+                brightStarsColors[idx] = color.r;
+                brightStarsColors[idx + 1] = color.g;
+                brightStarsColors[idx + 2] = color.b;
+
+                brightStarsSizes[i] = Math.random() * 3 + 2;
+                brightStarsPhases[i] = Math.random() * Math.PI * 2;
+            }
+
+            brightStarsGeometry.setAttribute('position', new THREE.BufferAttribute(brightStarsPositions, 3));
+            brightStarsGeometry.setAttribute('color', new THREE.BufferAttribute(brightStarsColors, 3));
+            brightStarsGeometry.setAttribute('size', new THREE.BufferAttribute(brightStarsSizes, 1));
+            brightStarsGeometry.setAttribute('phase', new THREE.BufferAttribute(brightStarsPhases, 1));
+
+            const brightStarsMaterial = new THREE.ShaderMaterial({
+                uniforms: {
+                    time: { value: 0 }
+                },
+                vertexShader: `
+                    attribute float size;
+                    attribute vec3 color;
+                    attribute float phase;
+                    varying vec3 vColor;
+                    uniform float time;
+                    
+                    void main() {
+                        vColor = color;
+                        float pulseFactor = 1.0 + sin(time * 2.0 + phase) * 0.3;
+                        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                        gl_PointSize = size * pulseFactor * (300.0 / -mvPosition.z);
+                        gl_Position = projectionMatrix * mvPosition;
+                    }
+                `,
+                fragmentShader: `
+                    varying vec3 vColor;
+                    
+                    void main() {
+                        float r = length(gl_PointCoord - vec2(0.5));
+                        if (r > 0.5) discard;
+                        
+                        float intensity = pow(1.0 - r * 2.0, 2.0);
+                        gl_FragColor = vec4(vColor, intensity);
+                    }
+                `,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+
+            const brightStars = new THREE.Points(brightStarsGeometry, brightStarsMaterial);
+            Graph.scene().add(brightStars);
+            particleSystems.push(brightStars);
+
             // 星雲の生成
             const nebulaeCount = 3;
             for (let i = 0; i < nebulaeCount; i++) {
@@ -1100,60 +1243,27 @@
                 Graph.scene().add(nebula);
             }
 
-            // 高輝度の星の生成
-            const brightStarsGeometry = new THREE.BufferGeometry();
-            const brightStarsVertices = [];
-            const brightStarsColors = [];
-            for (let i = 0; i < 200; i++) {
-                brightStarsVertices.push(
-                    Math.random() * 1000 - 500,
-                    Math.random() * 1000 - 500,
-                    Math.random() * 1000 - 500
-                );
-                const starColor = getRandomStarColor();
-                brightStarsColors.push(starColor.r, starColor.g, starColor.b);
-            }
-            brightStarsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(brightStarsVertices, 3));
-            brightStarsGeometry.setAttribute('color', new THREE.Float32BufferAttribute(brightStarsColors, 3));
+            return {
+                particleSystems,
+                update: function(time) {
+                    // 背景星の位置更新
+                    const positions = backgroundStarsGeometry.attributes.position.array;
+                    for (let i = 0; i < backgroundStarsCount; i++) {
+                        const idx = i * 3;
+                        positions[idx] += backgroundStarsVelocities[idx] * Math.sin(time * 0.5);
+                        positions[idx + 1] += backgroundStarsVelocities[idx + 1] * Math.cos(time * 0.5);
+                        positions[idx + 2] += backgroundStarsVelocities[idx + 2] * Math.sin(time * 0.3);
+                    }
+                    backgroundStarsGeometry.attributes.position.needsUpdate = true;
 
-            const brightStarsMaterial = new THREE.PointsMaterial({
-                size: 2,
-                vertexColors: true,
-                transparent: true,
-                opacity: 0.8,
-                blending: THREE.AdditiveBlending
-            });
-
-            const brightStars = new THREE.Points(brightStarsGeometry, brightStarsMaterial);
-            Graph.scene().add(brightStars);
-
-            // 遠距離の背景星生成
-            const backgroundStarsGeometry = new THREE.BufferGeometry();
-            const backgroundStarsVertices = [];
-            for (let i = 0; i < 10000; i++) {
-                const radius = 1000;
-                const theta = Math.random() * Math.PI * 2;
-                const phi = Math.random() * Math.PI;
-                backgroundStarsVertices.push(
-                    radius * Math.sin(phi) * Math.cos(theta),
-                    radius * Math.sin(phi) * Math.sin(theta),
-                    radius * Math.cos(phi)
-                );
-            }
-            backgroundStarsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(backgroundStarsVertices, 3));
-
-            const backgroundStarsMaterial = new THREE.PointsMaterial({
-                size: 0.5,
-                color: 0xffffff,
-                transparent: true,
-                opacity: 0.5,
-                blending: THREE.AdditiveBlending
-            });
-
-            const backgroundStars = new THREE.Points(backgroundStarsGeometry, backgroundStarsMaterial);
-            Graph.scene().add(backgroundStars);
-
-            return { brightStars, backgroundStars };
+                    // シェーダーの時間更新
+                    particleSystems.forEach(system => {
+                        if (system.material.uniforms) {
+                            system.material.uniforms.time.value = time;
+                        }
+                    });
+                }
+            };
         }
 
         function getRandomNebulaeColor() {
@@ -1418,27 +1528,20 @@
         pointLight.position.set(5, 5, 5);
         Graph.scene().add(pointLight);
 
-        // 宇宙空間の初期化
+        // 宇宙空間の初期化とアニメーションループ
         const spaceElements = createSpaceEnvironment();
-
-        // アニメーションループ
         let time = 0;
+
         function animate() {
             time += 0.005;
+            
+            // 宇宙空間のアニメーション更新
+            spaceElements.update(time);
 
-            // シェーダーマテリアルの時間更新
+            // シェーダーの時間更新
             Graph.scene().traverse(obj => {
                 if (obj.material && obj.material.uniforms) {
                     obj.material.uniforms.time.value = time;
-                }
-            });
-
-            // 星のまたたき効果
-            Graph.scene().traverse(obj => {
-                if (obj instanceof THREE.Points) {
-                    if (obj.material.size > 1) { // 明るい星のみ
-                        obj.material.opacity = 0.5 + Math.sin(time * 3) * 0.3;
-                    }
                 }
             });
 
